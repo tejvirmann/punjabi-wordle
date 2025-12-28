@@ -1,5 +1,53 @@
 // Comprehensive Punjabi word list for validation
-// All words normalized to 5 characters
+// All words normalized to exactly 5 character units (consonant + matra = 1 unit)
+
+// Helper functions for character unit counting
+function isMatra(char: string): boolean {
+    const matras = ['ਿ', 'ੀ', 'ੁ', 'ੂ', 'ੇ', 'ੈ', 'ੋ', 'ੌ', 'ਾ', 'ੰ', 'ੱ', 'ਂ', '਼']
+    return matras.includes(char)
+}
+
+function countCharacterUnits(str: string): number {
+    const chars = Array.from(str)
+    let count = 0
+    for (let i = 0; i < chars.length; i++) {
+        if (!isMatra(chars[i])) {
+            count++
+        }
+    }
+    return count
+}
+
+function normalizeTo5Units(word: string): string {
+    const cleaned = word.replace(/\s/g, '')
+    const chars = Array.from(cleaned)
+    
+    // Collect exactly 5 character units
+    let result = ''
+    let unitCount = 0
+    
+    for (let i = 0; i < chars.length && unitCount < 5; i++) {
+        if (isMatra(chars[i])) {
+            // Matra belongs to previous unit, add it
+            result += chars[i]
+        } else {
+            // New unit
+            if (unitCount < 5) {
+                result += chars[i]
+                unitCount++
+                // Collect following matras
+                let j = i + 1
+                while (j < chars.length && isMatra(chars[j]) && unitCount <= 5) {
+                    result += chars[j]
+                    j++
+                }
+                i = j - 1 // Skip processed matras
+            }
+        }
+    }
+    
+    return result
+}
 
 export const PUNJABI_VALID_WORDS = [
     // Common 5-character words
@@ -52,18 +100,10 @@ export const PUNJABI_VALID_WORDS = [
     'ਦੇਖਣਾ', 'ਦਿਖਾਉਣਾ', 'ਸੋਚਣਾ', 'ਸਮਝਾਉਣਾ', 'ਜਾਣਨਾ',
     'ਜਤਾਉਣਾ', 'ਯਾਦ', 'ਭੁੱਲ', 'ਸਮਰਥਾ', 'ਯਾਦ',
     'ਯਾਦ', 'ਭੁੱਲ', 'ਸਮਰਥਾ', 'ਯਾਦ', 'ਭੁੱਲ'
-].map(word => {
-    // Normalize to 5 Unicode characters (code points)
-    const cleaned = word.replace(/\s/g, '')
-    const chars = Array.from(cleaned) // Properly handle Unicode
-    if (chars.length >= 5) {
-        return chars.slice(0, 5).join('')
-    }
-    return chars.join('').padEnd(5, ' ')
-}).filter((word, index, self) => {
-    // Remove duplicates and ensure word is exactly 5 Unicode characters
-    const chars = Array.from(word.replace(/\s/g, ''))
-    return self.indexOf(word) === index && chars.length === 5
+].map(normalizeTo5Units).filter((word, index, self) => {
+    // Remove duplicates and ensure word is exactly 5 character units
+    const unitCount = countCharacterUnits(word)
+    return self.indexOf(word) === index && unitCount === 5
 })
 
 // Create a Set for fast lookup

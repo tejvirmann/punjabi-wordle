@@ -32,10 +32,10 @@ function normalizeWord(word: string): string {
 
 export async function POST(request: NextRequest) {
     try {
-        // Check password only if ADMIN_PASSWORD is set
+        // Check password only if ADMIN_PASSWORD is set and not empty
         const expectedPassword = process.env.ADMIN_PASSWORD
         
-        if (expectedPassword) {
+        if (expectedPassword && expectedPassword.trim().length > 0) {
             const authHeader = request.headers.get('authorization')
             if (!authHeader || authHeader !== `Bearer ${expectedPassword}`) {
                 return NextResponse.json(
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
                 )
             }
         }
-        // If no password is set, allow access without authentication
+        // If no password is set or empty, allow access without authentication
 
         const body = await request.json()
         const { word, date } = body

@@ -2,29 +2,40 @@
 
 import { useEffect, useState, useCallback } from 'react'
 
-// Gurmukhi keyboard layout for Punjabi
-// Consonants
+// Gurmukhi keyboard layout for Punjabi - matching standard alphabet table
+// Vowels (first row)
+const PUNJABI_VOWELS = ['ੳ', 'ਅ', 'ੲ', 'ਸ', 'ਹ'];
+
+// Consonants in rows of 5 (matching Gurmukhi alphabet table)
 const PUNJABI_CONSONANTS = [
-    ['ੳ', 'ਅ', 'ੲ', 'ਸ', 'ਹ', 'ਕ', 'ਖ', 'ਗ', 'ਘ', 'ਙ'],
-    ['ਚ', 'ਛ', 'ਜ', 'ਝ', 'ਞ', 'ਟ', 'ਠ', 'ਡ', 'ਢ', 'ਣ'],
-    ['ਤ', 'ਥ', 'ਦ', 'ਧ', 'ਨ', 'ਪ', 'ਫ', 'ਬ', 'ਭ', 'ਮ'],
-    ['ਯ', 'ਰ', 'ਲ', 'ਵ', 'ੜ', 'ਸ਼', 'ਖ਼', 'ਗ਼', 'ਜ਼', 'ਫ਼', 'ਲ਼']
+    ['ਕ', 'ਖ', 'ਗ', 'ਘ', 'ਙ'],  // Row 1
+    ['ਚ', 'ਛ', 'ਜ', 'ਝ', 'ਞ'],  // Row 2
+    ['ਟ', 'ਠ', 'ਡ', 'ਢ', 'ਣ'],  // Row 3
+    ['ਤ', 'ਥ', 'ਦ', 'ਧ', 'ਨ'],  // Row 4
+    ['ਪ', 'ਫ', 'ਬ', 'ਭ', 'ਮ'],  // Row 5
+    ['ਯ', 'ਰ', 'ਲ', 'ਵ', 'ੜ'],  // Row 6
+    ['ਸ਼', 'ਖ਼', 'ਗ਼', 'ਜ਼', 'ਫ਼'], // Row 7
+    ['ਲ਼']  // Row 8 (can add more if needed)
 ];
 
 // Matras (vowel diacritics) - these combine with previous consonant
+// Organized in rows of 5 to match standard layout
 const PUNJABI_MATRAS = [
-    ['ਿ', 'ੀ', 'ੁ', 'ੂ', 'ੇ', 'ੈ', 'ੋ', 'ੌ'], // Sihari, Bihari, Aunkar, Dulankar, Hora, Kanora, Kana, Dulaen
-    ['ੰ', 'ੱ', 'ਂ', '਼'] // Tippi, Adhak, Bindi, Pair Bindi
+    ['ਿ', 'ੀ', 'ੁ', 'ੂ', 'ੇ'], // Sihari (i), Bihari (ee), Aunkar (u), Dulankar (oo), Hora (e)
+    ['ੈ', 'ੋ', 'ੌ', 'ਾ', 'ੰ'], // Kanora (ai), Kana (o), Dulaen (au), Aa (aa - the horizontal dash), Tippi
+    ['ੱ', 'ਂ', '਼'] // Adhak (double consonant), Bindi, Pair Bindi
 ];
 
 // Check if a character is a matra
 function isMatra(char: string): boolean {
-    return PUNJABI_MATRAS.flat().includes(char)
+    // Include the "aa" matra (ਾ) which is commonly used
+    const allMatras = [...PUNJABI_MATRAS.flat(), 'ਾ']
+    return allMatras.includes(char)
 }
 
-// Check if a character is a consonant
+// Check if a character is a consonant or vowel
 function isConsonant(char: string): boolean {
-    return PUNJABI_CONSONANTS.flat().includes(char)
+    return PUNJABI_CONSONANTS.flat().includes(char) || PUNJABI_VOWELS.includes(char)
 }
 
 // Count character units (consonant + matra = 1 unit)
@@ -262,8 +273,9 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
             } else if (e.key === 'Backspace') {
                 handleBackspace()
             } else if (e.key.length === 1) {
-                // Check for consonants and matras
+                // Check for vowels, consonants and matras
                 const allChars = [
+                    ...PUNJABI_VOWELS,
                     ...PUNJABI_CONSONANTS.flat(),
                     ...PUNJABI_MATRAS.flat()
                 ]
@@ -305,13 +317,14 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
     const getMatraName = (matra: string): string => {
         const matraNames: Record<string, string> = {
             'ਿ': 'Sihari (i)',
-            'ੀ': 'Bihari (ī)',
+            'ੀ': 'Bihari (ī/ee)',
             'ੁ': 'Aunkar (u)',
-            'ੂ': 'Dulankar (ū)',
+            'ੂ': 'Dulankar (ū/oo)',
             'ੇ': 'Hora (e)',
             'ੈ': 'Kanora (ai)',
             'ੋ': 'Kana (o)',
             'ੌ': 'Dulaen (au)',
+            'ਾ': 'Aa (aa - horizontal dash)',
             'ੰ': 'Tippi (ṃ)',
             'ੱ': 'Adhak (double consonant)',
             'ਂ': 'Bindi (ṃ)',
@@ -355,7 +368,23 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
             </div>
 
             <div className="keyboard">
-                {/* Consonants */}
+                {/* Vowels (first row) */}
+                <div className="keyboard-row">
+                    {PUNJABI_VOWELS.map((keyChar) => {
+                        const keyState = keyStates[keyChar] || ''
+                        return (
+                            <button
+                                key={keyChar}
+                                className={`key ${keyState}`}
+                                onClick={() => handleKeyPress(keyChar)}
+                                disabled={gameOver}
+                            >
+                                {keyChar}
+                            </button>
+                        )
+                    })}
+                </div>
+                {/* Consonants in rows of 5 */}
                 {PUNJABI_CONSONANTS.map((row, rowIdx) => (
                     <div key={`cons-${rowIdx}`} className="keyboard-row">
                         {row.map((keyChar) => {
@@ -371,6 +400,10 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
                                 </button>
                             )
                         })}
+                        {/* Pad row if less than 5 characters */}
+                        {Array.from({ length: 5 - row.length }).map((_, i) => (
+                            <div key={`pad-${i}`} className="key" style={{ visibility: 'hidden' }} />
+                        ))}
                     </div>
                 ))}
                 {/* Matras Row 1 */}
@@ -407,6 +440,25 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
                         )
                     })}
                 </div>
+                {/* Matras Row 3 (if exists) */}
+                {PUNJABI_MATRAS[2] && (
+                    <div className="keyboard-row">
+                        {PUNJABI_MATRAS[2].map((keyChar) => {
+                            const keyState = keyStates[keyChar] || ''
+                            return (
+                                <button
+                                    key={keyChar}
+                                    className={`key ${keyState}`}
+                                    onClick={() => handleKeyPress(keyChar)}
+                                    disabled={gameOver}
+                                    title={getMatraName(keyChar)}
+                                >
+                                    {keyChar}
+                                </button>
+                            )
+                        })}
+                    </div>
+                )}
                 {/* Control buttons */}
                 <div className="keyboard-row">
                     <button
