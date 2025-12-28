@@ -43,30 +43,30 @@ function countCharacterUnits(str: string): number {
 
 // Get character unit at index (consonant + following matras = 1 unit)
 function getCharacterUnitAt(str: string, unitIndex: number): string {
-    if (!str) return ''
+    if (!str || unitIndex < 0) return ''
     
     const chars = Array.from(str)
     let unitCount = 0
     let currentUnitStart = -1
     
-    // First, find which character indices belong to each unit
-    // We need to track units properly, including matras that belong to previous units
+    // First, find which character index starts the requested unit
+    // Matras don't start new units, they belong to the previous consonant
     for (let i = 0; i < chars.length; i++) {
         if (!isMatra(chars[i])) {
-            // This is a new unit (consonant)
+            // This is a new unit (consonant or vowel)
             if (unitCount === unitIndex) {
                 currentUnitStart = i
                 break
             }
             unitCount++
         }
-        // If it's a matra, it belongs to the previous unit, so we don't increment unitCount
+        // Matras don't increment unitCount - they belong to the previous unit
     }
     
-    // If we found the unit start, collect the consonant and all following matras
-    if (currentUnitStart >= 0) {
+    // If we found the unit start, collect the consonant and all immediately following matras
+    if (currentUnitStart >= 0 && currentUnitStart < chars.length) {
         let result = chars[currentUnitStart]
-        // Collect all matras that immediately follow this consonant
+        // Collect all consecutive matras that follow this consonant
         let j = currentUnitStart + 1
         while (j < chars.length && isMatra(chars[j])) {
             result += chars[j]
@@ -75,14 +75,7 @@ function getCharacterUnitAt(str: string, unitIndex: number): string {
         return result
     }
     
-    // If we didn't find the unit, it means we're looking beyond the string length
-    // But also check if there's a trailing matra that belongs to the last unit
-    if (unitIndex === unitCount && chars.length > 0) {
-        // Check if the last character is a matra and we're looking for the next unit
-        // This shouldn't happen in normal flow, but handle it gracefully
-        return ''
-    }
-    
+    // Unit index is beyond the available units
     return ''
 }
 
@@ -125,13 +118,9 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
                 return
             }
             
-            // Check if we've reached the character unit limit
-            // Matras don't count as separate units, they're part of previous unit
-            if (currentUnitCount >= wordLength) {
-                return
-            }
-            
-            // Add matra - it will combine with previous character unit
+            // Matras can always be added to the last character, even if we've reached 5 units
+            // because matras don't count as separate units - they're part of the previous unit
+            // No need to check unit count for matras - they just combine with the last character
             setCurrentGuess(prev => prev + key)
         } else {
             // It's a consonant or other character - counts as a new unit
@@ -344,7 +333,14 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
                         const currentStr = row === currentRow ? currentGuess : (guesses[row] || '')
                         
                         // Get character unit at this position (consonant + matras = 1 unit)
-                        const displayChar = getCharacterUnitAt(currentStr, col)
+                        // Only show if we have a valid unit at this position
+                        const unitCount = countCharacterUnits(currentStr)
+                        let displayChar = col < unitCount ? getCharacterUnitAt(currentStr, col) : ''
+                        
+                        // Safety check: never show a matra alone (should always be with a consonant)
+                        if (displayChar && isMatra(displayChar[0]) && !isConsonant(displayChar[0])) {
+                            displayChar = ''
+                        }
 
                         return (
                             <div
