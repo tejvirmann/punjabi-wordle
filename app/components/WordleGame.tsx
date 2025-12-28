@@ -368,6 +368,66 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
             </div>
 
             <div className="keyboard">
+                {/* Matras Section - Sticky at top for easy access on mobile */}
+                <div className="keyboard-matra-section">
+                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px', textAlign: 'center', fontWeight: '600' }}>
+                        ਮਾਤਰਾ (Matras)
+                    </div>
+                    {/* Matras Row 1 */}
+                    <div className="keyboard-row">
+                        {PUNJABI_MATRAS[0].map((keyChar) => {
+                            const keyState = keyStates[keyChar] || ''
+                            return (
+                                <button
+                                    key={keyChar}
+                                    className={`key ${keyState}`}
+                                    onClick={() => handleKeyPress(keyChar)}
+                                    disabled={gameOver}
+                                    title={getMatraName(keyChar)}
+                                >
+                                    {keyChar}
+                                </button>
+                            )
+                        })}
+                    </div>
+                    {/* Matras Row 2 */}
+                    <div className="keyboard-row">
+                        {PUNJABI_MATRAS[1].map((keyChar) => {
+                            const keyState = keyStates[keyChar] || ''
+                            return (
+                                <button
+                                    key={keyChar}
+                                    className={`key ${keyState}`}
+                                    onClick={() => handleKeyPress(keyChar)}
+                                    disabled={gameOver}
+                                    title={getMatraName(keyChar)}
+                                >
+                                    {keyChar}
+                                </button>
+                            )
+                        })}
+                    </div>
+                    {/* Matras Row 3 (if exists) */}
+                    {PUNJABI_MATRAS[2] && (
+                        <div className="keyboard-row">
+                            {PUNJABI_MATRAS[2].map((keyChar) => {
+                                const keyState = keyStates[keyChar] || ''
+                                return (
+                                    <button
+                                        key={keyChar}
+                                        className={`key ${keyState}`}
+                                        onClick={() => handleKeyPress(keyChar)}
+                                        disabled={gameOver}
+                                        title={getMatraName(keyChar)}
+                                    >
+                                        {keyChar}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+                
                 {/* Vowels (first row) */}
                 <div className="keyboard-row">
                     {PUNJABI_VOWELS.map((keyChar) => {
@@ -406,59 +466,6 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
                         ))}
                     </div>
                 ))}
-                {/* Matras Row 1 */}
-                <div className="keyboard-row">
-                    {PUNJABI_MATRAS[0].map((keyChar) => {
-                        const keyState = keyStates[keyChar] || ''
-                        return (
-                            <button
-                                key={keyChar}
-                                className={`key ${keyState}`}
-                                onClick={() => handleKeyPress(keyChar)}
-                                disabled={gameOver}
-                                title={getMatraName(keyChar)}
-                            >
-                                {keyChar}
-                            </button>
-                        )
-                    })}
-                </div>
-                {/* Matras Row 2 */}
-                <div className="keyboard-row">
-                    {PUNJABI_MATRAS[1].map((keyChar) => {
-                        const keyState = keyStates[keyChar] || ''
-                        return (
-                            <button
-                                key={keyChar}
-                                className={`key ${keyState}`}
-                                onClick={() => handleKeyPress(keyChar)}
-                                disabled={gameOver}
-                                title={getMatraName(keyChar)}
-                            >
-                                {keyChar}
-                            </button>
-                        )
-                    })}
-                </div>
-                {/* Matras Row 3 (if exists) */}
-                {PUNJABI_MATRAS[2] && (
-                    <div className="keyboard-row">
-                        {PUNJABI_MATRAS[2].map((keyChar) => {
-                            const keyState = keyStates[keyChar] || ''
-                            return (
-                                <button
-                                    key={keyChar}
-                                    className={`key ${keyState}`}
-                                    onClick={() => handleKeyPress(keyChar)}
-                                    disabled={gameOver}
-                                    title={getMatraName(keyChar)}
-                                >
-                                    {keyChar}
-                                </button>
-                            )
-                        })}
-                    </div>
-                )}
                 {/* Control buttons */}
                 <div className="keyboard-row">
                     <button

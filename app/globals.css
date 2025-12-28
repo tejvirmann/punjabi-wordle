@@ -10,9 +10,11 @@ body {
     color: #1a1a1b;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     min-height: 100vh;
     flex-direction: column;
+    padding-top: env(safe-area-inset-top, 0);
+    overflow-x: hidden;
 }
 
 .container {
@@ -137,6 +139,28 @@ header h1 {
     flex-direction: column;
     gap: 8px;
     margin-bottom: 20px;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.keyboard-matra-section {
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    padding: 8px;
+    margin-bottom: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.keyboard-matra-section .keyboard-row {
+    gap: 4px;
+}
+
+.keyboard-matra-section .key {
+    background-color: #e8e8e8;
+    font-size: 14px;
+    min-width: 38px;
+    height: 50px;
 }
 
 .keyboard-row {
@@ -161,6 +185,12 @@ header h1 {
     transition: background-color 0.1s;
     user-select: none;
     padding: 0 8px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.key:focus {
+    outline: none;
 }
 
 .key:hover {
@@ -254,18 +284,88 @@ header h1 {
 }
 
 @media (max-width: 500px) {
-    .tile {
+    .container {
+        padding: 5px;
+    }
+    
+    header h1 {
         font-size: 28px;
+        padding: 8px 0;
+    }
+    
+    .game-board {
+        gap: 4px;
+        margin-bottom: 20px;
+        max-width: 100%;
+    }
+    
+    .tile {
+        font-size: 24px;
+        border-width: 1.5px;
+    }
+    
+    .keyboard {
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+    
+    .keyboard-row {
+        gap: 4px;
     }
     
     .key {
-        min-width: 30px;
-        height: 50px;
-        font-size: 11px;
+        min-width: calc((100vw - 40px) / 5 - 4px);
+        max-width: calc((100vw - 40px) / 5 - 4px);
+        height: 48px;
+        font-size: 14px;
+        padding: 0 4px;
+        flex: 1;
     }
     
     .key.wide {
-        min-width: 50px;
+        min-width: calc((100vw - 40px) / 2.5 - 4px);
+        max-width: calc((100vw - 40px) / 2.5 - 4px);
+        font-size: 12px;
+    }
+    
+    .keyboard-matra-section {
+        padding: 6px;
+        margin-bottom: 6px;
+    }
+    
+    .keyboard-matra-section .key {
+        min-width: calc((100vw - 60px) / 5 - 4px);
+        max-width: calc((100vw - 60px) / 5 - 4px);
+        height: 44px;
+        font-size: 16px;
+    }
+    
+    .message {
+        font-size: 14px;
+        height: 24px;
+    }
+    
+    .modal-content {
+        padding: 20px;
+        margin: 20px;
+    }
+    
+    .modal-content h2 {
+        font-size: 20px;
+    }
+    
+    .modal-content p {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 375px) {
+    .key {
+        font-size: 12px;
+    }
+    
+    .keyboard-matra-section .key {
+        font-size: 14px;
     }
 }
 
