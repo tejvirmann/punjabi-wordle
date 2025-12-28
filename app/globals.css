@@ -135,13 +135,27 @@ header h1 {
     max-width: 500px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 5px;
     margin-bottom: 20px;
+    padding: 0 2px;
+}
+
+@media (max-width: 500px) {
+    .keyboard {
+        max-width: 100%;
+        padding: 0;
+    }
 }
 
 .keyboard-row {
     display: flex;
     justify-content: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.keyboard-control-row {
+    margin-top: 4px;
     gap: 6px;
 }
 
@@ -158,9 +172,15 @@ header h1 {
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: background-color 0.1s;
+    transition: background-color 0.1s, transform 0.05s;
     user-select: none;
     padding: 0 8px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.key:active {
+    transform: scale(0.95);
 }
 
 .key:hover {
@@ -174,6 +194,41 @@ header h1 {
 .key.wide {
     min-width: 65px;
     font-size: 12px;
+    flex: 1.5;
+}
+
+.key.extra-wide {
+    min-width: 80px;
+    font-size: 14px;
+    flex: 2;
+}
+
+.hint-btn {
+    background-color: #6aaa64;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.05s;
+    margin-bottom: 10px;
+    touch-action: manipulation;
+}
+
+.hint-btn:hover {
+    background-color: #5a9a54;
+}
+
+.hint-btn:active {
+    transform: scale(0.95);
+}
+
+.hint-btn:disabled {
+    background-color: #787c7e;
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 .key.correct {
@@ -254,18 +309,111 @@ header h1 {
 }
 
 @media (max-width: 500px) {
+    .container {
+        padding: 6px;
+        max-width: 100%;
+    }
+    
+    header {
+        margin-bottom: 12px;
+    }
+    
+    header h1 {
+        font-size: 24px;
+        padding: 6px 0;
+    }
+    
+    .game-board {
+        gap: 3px;
+        margin-bottom: 12px;
+        max-width: 100%;
+        padding: 0 4px;
+    }
+    
     .tile {
-        font-size: 28px;
+        font-size: 22px;
+        border-width: 1.5px;
+    }
+    
+    .keyboard {
+        gap: 3px;
+        margin-bottom: 8px;
+        max-height: 50vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 4px 4px;
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .keyboard-row {
+        gap: 3px;
+        flex-wrap: nowrap;
+        width: 100%;
+        padding: 0;
+        margin: 0;
     }
     
     .key {
-        min-width: 30px;
+        flex: 1 1 0;
+        min-width: 0;
         height: 50px;
-        font-size: 11px;
+        font-size: 16px;
+        padding: 0 2px;
+        border-radius: 6px;
     }
     
     .key.wide {
-        min-width: 50px;
+        flex: 1.5;
+        font-size: 14px;
+    }
+    
+    .key.extra-wide {
+        flex: 2;
+        min-width: 0;
+        height: 54px;
+        font-size: 16px;
+        font-weight: 700;
+    }
+    
+    .keyboard-control-row {
+        gap: 4px;
+        margin-top: 6px;
+    }
+    
+    .hint-btn {
+        width: 100%;
+        max-width: 500px;
+        padding: 10px;
+        font-size: 15px;
+        margin-bottom: 6px;
+        border-radius: 6px;
+    }
+    
+    .message {
+        font-size: 12px;
+        height: 20px;
+        margin-bottom: 6px;
+    }
+}
+
+@media (max-width: 375px) {
+    .key {
+        font-size: 14px;
+        height: 46px;
+    }
+    
+    .key.wide {
+        font-size: 13px;
+    }
+    
+    .key.extra-wide {
+        font-size: 15px;
+        height: 50px;
+    }
+    
+    .tile {
+        font-size: 20px;
     }
 }
 

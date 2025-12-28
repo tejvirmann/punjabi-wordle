@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { PUNJABI_VALID_WORDS, PUNJABI_WORD_SET, countCharacterUnits } from '../../data/punjabiWords'
 
 // Dynamically import KV only if env vars are set
 async function getKV() {
@@ -13,47 +14,20 @@ async function getKV() {
     }
 }
 
-// Fallback word list
-const FALLBACK_WORDS = [
-    'ਸੱਚਾ', 'ਪਿਆਰ', 'ਖੁਸ਼ੀ', 'ਸੁੰਦਰ', 'ਮਿੱਠਾ',
-    'ਬਹਾਦਰ', 'ਸਾਫ਼', 'ਤਾਜ਼ਾ', 'ਗਰਮ', 'ਠੰਡਾ',
-    'ਵੱਡਾ', 'ਛੋਟਾ', 'ਨਵਾਂ', 'ਪੁਰਾਣਾ', 'ਸੁਣਹਿਰੀ',
-    'ਕਾਲਾ', 'ਸਫ਼ੈਦ', 'ਲਾਲ', 'ਹਰਾ', 'ਨੀਲਾ',
-    'ਖਾਣਾ', 'ਪੀਣਾ', 'ਸੌਣਾ', 'ਉਠਣਾ', 'ਚੱਲਣਾ',
-    'ਬੋਲਣਾ', 'ਸੁਣਣਾ', 'ਦੇਖਣਾ', 'ਸੋਚਣਾ', 'ਕਰਣਾ',
-    'ਰੋਟੀ', 'ਦਾਲ', 'ਸਬਜ਼ੀ', 'ਫਲ', 'ਪਾਣੀ',
-    'ਸੂਰਜ', 'ਚੰਦ', 'ਤਾਰਾ', 'ਬੱਦਲ', 'ਬਾਰਿਸ਼',
-    'ਪੰਛੀ', 'ਕੁੱਤਾ', 'ਬਿੱਲੀ', 'ਘੋੜਾ', 'ਗਾਂ',
-    'ਕਿਤਾਬ', 'ਕਲਮ', 'ਮੇਜ਼', 'ਕੁਰਸੀ', 'ਖਿੜਕੀ',
-    'ਦਰਵਾਜ਼ਾ', 'ਲਾਲਟੈਨ', 'ਚਾਹ', 'ਦੁੱਧ', 'ਸ਼ੱਕਰ',
-    'ਮਿੱਟੀ', 'ਪੱਥਰ', 'ਲੱਕੜ', 'ਲੋਹਾ', 'ਸੋਨਾ',
-    'ਚਾਂਦੀ', 'ਤਾਂਬਾ', 'ਕੱਪੜਾ', 'ਜੁੱਤੀ', 'ਟੋਪੀ',
-    'ਬਸਤਾ', 'ਕਾਗਜ਼', 'ਸਿਆਹੀ', 'ਰਬੜ', 'ਪੈਨਸਿਲ',
-    'ਸਕੂਲ', 'ਕਲਾਸ', 'ਅਧਿਆਪਕ', 'ਵਿਦਿਆਰਥੀ', 'ਮਿੱਤਰ',
-    'ਦੋਸਤ', 'ਪਰਿਵਾਰ', 'ਮਾਤਾ', 'ਪਿਤਾ', 'ਭਰਾ',
-    'ਭੈਣ', 'ਚਾਚਾ', 'ਤਾਇਆ', 'ਮਾਮਾ', 'ਚਾਚੀ',
-    'ਤਾਈ', 'ਮਾਮੀ', 'ਦਾਦਾ', 'ਦਾਦੀ', 'ਨਾਨਾ',
-    'ਨਾਨੀ', 'ਪੋਤਾ', 'ਪੋਤੀ', 'ਧੀ', 'ਪੁੱਤਰ',
-    'ਬੇਟਾ', 'ਬੇਟੀ', 'ਪਤਨੀ', 'ਪਤੀ'
-]
-
-function normalizeWord(word: string): string {
-    const cleaned = word.replace(/\s/g, '')
-    if (cleaned.length >= 5) {
-        return cleaned.substring(0, 5)
-    }
-    return cleaned.padEnd(5, ' ')
-}
-
 function getDateKey(date: Date = new Date()): string {
     return date.toISOString().split('T')[0] // YYYY-MM-DD format
 }
 
-function getRandomWord(): string {
-    const normalized = FALLBACK_WORDS
-        .filter(word => word.replace(/\s/g, '').length >= 5)
-        .map(normalizeWord)
-    return normalized[Math.floor(Math.random() * normalized.length)]
+// Get a deterministic word for a date (same word every time for the same date)
+function getWordForDate(dateKey: string): string {
+    // Use the date as a seed for deterministic selection
+    // Convert date string to a number
+    const dateNum = parseInt(dateKey.replace(/-/g, ''), 10)
+    
+    // Use modulo to get a consistent index
+    const wordIndex = dateNum % PUNJABI_VALID_WORDS.length
+    
+    return PUNJABI_VALID_WORDS[wordIndex]
 }
 
 export async function GET() {
@@ -61,7 +35,7 @@ export async function GET() {
         const dateKey = getDateKey()
         let word: string | null = null
 
-        // Try to get word from KV store
+        // Try to get word from KV store (admin-set word takes priority)
         try {
             const kv = await getKV()
             if (kv) {
@@ -71,16 +45,47 @@ export async function GET() {
             console.error('KV error (using fallback):', error)
         }
 
-        // If no word set for today, use fallback
+        // If no word set for today in KV, use deterministic word based on date
         if (!word) {
-            word = getRandomWord()
+            word = getWordForDate(dateKey)
+        }
+
+        // Ensure word is exactly 5 character units (safety check)
+        const unitCount = countCharacterUnits(word)
+        if (unitCount !== 5) {
+            // Fallback to a known 5-unit word if something went wrong
+            console.warn(`Word "${word}" has ${unitCount} units (expected 5), using fallback`)
+            // Find first valid 5-unit word
+            for (const validWord of PUNJABI_VALID_WORDS) {
+                if (countCharacterUnits(validWord) === 5) {
+                    word = validWord
+                    break
+                }
+            }
+            if (countCharacterUnits(word) !== 5) {
+                // Last resort fallback
+                word = PUNJABI_VALID_WORDS[0]
+            }
+        }
+        
+        // Final validation - ensure word is in valid word set
+        if (!PUNJABI_WORD_SET.has(word)) {
+            console.warn(`Word "${word}" not in valid word set, using fallback`)
+            // Find first valid 5-unit word that's in the set
+            for (const validWord of PUNJABI_VALID_WORDS) {
+                if (countCharacterUnits(validWord) === 5 && PUNJABI_WORD_SET.has(validWord)) {
+                    word = validWord
+                    break
+                }
+            }
         }
 
         return NextResponse.json({ word, date: dateKey })
     } catch (error) {
         console.error('Error getting word of day:', error)
+        const dateKey = getDateKey()
         return NextResponse.json(
-            { word: getRandomWord(), date: getDateKey() },
+            { word: getWordForDate(dateKey), date: dateKey },
             { status: 200 }
         )
     }

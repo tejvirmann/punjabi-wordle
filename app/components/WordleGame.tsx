@@ -33,18 +33,23 @@ function isMatra(char: string): boolean {
     return allMatras.includes(char)
 }
 
+// Virama (੍) is a combining character that creates conjuncts
+function isVirama(char: string): boolean {
+    return char === '੍' // U+0A4D GURMUKHI SIGN VIRAMA
+}
+
 // Check if a character is a consonant or vowel
 function isConsonant(char: string): boolean {
     return PUNJABI_CONSONANTS.flat().includes(char) || PUNJABI_VOWELS.includes(char)
 }
 
-// Count character units (consonant + matra = 1 unit)
+// Count character units (consonant + matra = 1 unit, virama doesn't count)
 function countCharacterUnits(str: string): number {
     const chars = Array.from(str)
     let count = 0
     for (let i = 0; i < chars.length; i++) {
-        if (isMatra(chars[i])) {
-            // Matra doesn't count as separate unit, it's part of previous character
+        // Skip matras and virama - they don't count as separate units
+        if (isMatra(chars[i]) || isVirama(chars[i])) {
             continue
         }
         count++
@@ -52,7 +57,7 @@ function countCharacterUnits(str: string): number {
     return count
 }
 
-// Get character unit at index (consonant + following matras = 1 unit)
+// Get character unit at index (consonant + virama + following consonant + matras = 1 unit)
 function getCharacterUnitAt(str: string, unitIndex: number): string {
     if (!str || unitIndex < 0) return ''
     
@@ -61,9 +66,9 @@ function getCharacterUnitAt(str: string, unitIndex: number): string {
     let currentUnitStart = -1
     
     // First, find which character index starts the requested unit
-    // Matras don't start new units, they belong to the previous consonant
+    // Matras and virama don't start new units
     for (let i = 0; i < chars.length; i++) {
-        if (!isMatra(chars[i])) {
+        if (!isMatra(chars[i]) && !isVirama(chars[i])) {
             // This is a new unit (consonant or vowel)
             if (unitCount === unitIndex) {
                 currentUnitStart = i
@@ -71,14 +76,25 @@ function getCharacterUnitAt(str: string, unitIndex: number): string {
             }
             unitCount++
         }
-        // Matras don't increment unitCount - they belong to the previous unit
     }
     
-    // If we found the unit start, collect the consonant and all immediately following matras
+    // If we found the unit start, collect the consonant, virama (if present), next consonant, and matras
     if (currentUnitStart >= 0 && currentUnitStart < chars.length) {
         let result = chars[currentUnitStart]
-        // Collect all consecutive matras that follow this consonant
         let j = currentUnitStart + 1
+        
+        // Check for virama (creates conjunct)
+        if (j < chars.length && isVirama(chars[j])) {
+            result += chars[j]
+            j++
+            // After virama, there's usually another consonant
+            if (j < chars.length && !isMatra(chars[j]) && !isVirama(chars[j])) {
+                result += chars[j]
+                j++
+            }
+        }
+        
+        // Collect all consecutive matras that follow
         while (j < chars.length && isMatra(chars[j])) {
             result += chars[j]
             j++
@@ -112,6 +128,8 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
     const [showModal, setShowModal] = useState(false)
     const [won, setWon] = useState(false)
     const [keyStates, setKeyStates] = useState<Record<string, 'correct' | 'present' | 'absent' | null>>({})
+    const [hintsUsed, setHintsUsed] = useState(0)
+    const [hintedPositions, setHintedPositions] = useState<Set<number>>(new Set())
 
     const handleKeyPress = useCallback((key: string) => {
         if (gameOver) return
@@ -289,6 +307,55 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [gameOver, submitGuess, handleBackspace, handleKeyPress])
 
+    const useHint = useCallback(() => {
+        if (gameOver || hintsUsed >= wordLength) {
+            setMessage('All hints used')
+            setTimeout(() => setMessage(''), 2000)
+            return
+        }
+        
+        // Get target word units (consonant + matras = 1 unit)
+        const targetUnits: string[] = []
+        for (let i = 0; i < wordLength; i++) {
+            targetUnits.push(getCharacterUnitAt(targetWord, i))
+        }
+        
+        // Reveal letters sequentially from left to right
+        // hintsUsed tells us how many letters to reveal (0-based, so hintsUsed = 1 means reveal first letter)
+        const lettersToReveal = hintsUsed + 1
+        
+        // Build the new guess: first N letters from target, rest from current guess (or empty)
+        const newUnits: string[] = []
+        const currentUnitCount = countCharacterUnits(currentGuess)
+        
+        for (let i = 0; i < wordLength; i++) {
+            if (i < lettersToReveal) {
+                // Reveal this position with the correct unit (includes matras automatically)
+                newUnits.push(targetUnits[i])
+            } else if (i < currentUnitCount) {
+                // Keep existing guess for positions not yet revealed
+                newUnits.push(getCharacterUnitAt(currentGuess, i))
+            } else {
+                // Empty position
+                newUnits.push('')
+            }
+        }
+        
+        // Rebuild the guess string by joining all units
+        const newGuess = newUnits.join('')
+        
+        setCurrentGuess(newGuess)
+        setHintsUsed(prev => prev + 1)
+        // Track all revealed positions
+        const newHintedPositions = new Set<number>()
+        for (let i = 0; i < lettersToReveal; i++) {
+            newHintedPositions.add(i)
+        }
+        setHintedPositions(newHintedPositions)
+        setMessage(`💡 Hint: ${lettersToReveal} letter${lettersToReveal > 1 ? 's' : ''} revealed`)
+        setTimeout(() => setMessage(''), 2000)
+    }, [gameOver, hintsUsed, currentGuess, targetWord, wordLength])
+    
     const reset = () => {
         setCurrentGuess('')
         setGuesses([])
@@ -297,6 +364,8 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
         setShowModal(false)
         setMessage('')
         setKeyStates({})
+        setHintsUsed(0)
+        setHintedPositions(new Set())
         // Reload page to get new word of the day
         window.location.reload()
     }
@@ -460,16 +529,16 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
                     </div>
                 )}
                 {/* Control buttons */}
-                <div className="keyboard-row">
+                <div className="keyboard-row keyboard-control-row">
                     <button
-                        className="key wide"
+                        className="key extra-wide"
                         onClick={submitGuess}
                         disabled={gameOver}
                     >
                         Enter
                     </button>
                     <button
-                        className="key wide"
+                        className="key extra-wide"
                         onClick={handleBackspace}
                         disabled={gameOver}
                     >
@@ -479,6 +548,17 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
             </div>
 
             <div className="message">{message}</div>
+            
+            {/* Hint Button */}
+            {!gameOver && (
+                <button
+                    className="hint-btn"
+                    onClick={useHint}
+                    disabled={hintsUsed >= wordLength}
+                >
+                    💡 Hint ({hintsUsed}/{wordLength})
+                </button>
+            )}
 
             {showModal && (
                 <div className="modal">

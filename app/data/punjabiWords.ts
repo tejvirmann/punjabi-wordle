@@ -7,11 +7,17 @@ function isMatra(char: string): boolean {
     return matras.includes(char)
 }
 
+// Virama (੍) is a combining character that creates conjuncts - it doesn't count as a separate unit
+function isVirama(char: string): boolean {
+    return char === '੍' // U+0A4D GURMUKHI SIGN VIRAMA
+}
+
 function countCharacterUnits(str: string): number {
     const chars = Array.from(str)
     let count = 0
     for (let i = 0; i < chars.length; i++) {
-        if (!isMatra(chars[i])) {
+        // Skip matras and virama - they don't count as separate units
+        if (!isMatra(chars[i]) && !isVirama(chars[i])) {
             count++
         }
     }
@@ -20,9 +26,16 @@ function countCharacterUnits(str: string): number {
 
 function normalizeTo5Units(word: string): string {
     const cleaned = word.replace(/\s/g, '')
-    const chars = Array.from(cleaned)
+    const originalUnitCount = countCharacterUnits(cleaned)
     
-    // Collect exactly 5 character units
+    // If word is already exactly 5 units, return as-is
+    if (originalUnitCount === 5) {
+        return cleaned
+    }
+    
+    // If word has more than 5 units, truncate to 5
+    // If word has less than 5 units, we'll filter it out (handled in filter)
+    const chars = Array.from(cleaned)
     let result = ''
     let unitCount = 0
     
@@ -30,18 +43,32 @@ function normalizeTo5Units(word: string): string {
         if (isMatra(chars[i])) {
             // Matra belongs to previous unit, add it
             result += chars[i]
+        } else if (isVirama(chars[i])) {
+            // Virama creates conjuncts - add it to the previous consonant
+            result += chars[i]
         } else {
-            // New unit
+            // New unit (consonant or vowel)
             if (unitCount < 5) {
                 result += chars[i]
                 unitCount++
-                // Collect following matras
+                // Collect following virama, then matras
                 let j = i + 1
+                // First collect virama if present (for conjuncts)
+                if (j < chars.length && isVirama(chars[j])) {
+                    result += chars[j]
+                    j++
+                    // After virama, there's usually another consonant
+                    if (j < chars.length && !isMatra(chars[j]) && !isVirama(chars[j])) {
+                        result += chars[j]
+                        j++
+                    }
+                }
+                // Then collect following matras
                 while (j < chars.length && isMatra(chars[j]) && unitCount <= 5) {
                     result += chars[j]
                     j++
                 }
-                i = j - 1 // Skip processed matras
+                i = j - 1 // Skip processed characters
             }
         }
     }
@@ -100,12 +127,26 @@ export const PUNJABI_VALID_WORDS = [
     'ਦੇਖਣਾ', 'ਦਿਖਾਉਣਾ', 'ਸੋਚਣਾ', 'ਸਮਝਾਉਣਾ', 'ਜਾਣਨਾ',
     'ਜਤਾਉਣਾ', 'ਯਾਦ', 'ਭੁੱਲ', 'ਸਮਰਥਾ', 'ਯਾਦ',
     'ਯਾਦ', 'ਭੁੱਲ', 'ਸਮਰਥਾ', 'ਯਾਦ', 'ਭੁੱਲ'
-].map(normalizeTo5Units).filter((word, index, self) => {
-    // Remove duplicates and ensure word is exactly 5 character units
+].filter((word, index, self) => {
+    // First, check if word has exactly 5 character units BEFORE normalization
+    // This ensures we only keep words that are naturally 5 units
+    const originalUnitCount = countCharacterUnits(word.replace(/\s/g, ''))
+    if (originalUnitCount !== 5) {
+        return false // Skip words that aren't exactly 5 units
+    }
+    // Remove duplicates
+    return self.indexOf(word) === index
+}).map(normalizeTo5Units).filter((word, index, self) => {
+    // Final check after normalization - ensure it's still 5 units
     const unitCount = countCharacterUnits(word)
     return self.indexOf(word) === index && unitCount === 5
 })
 
-// Create a Set for fast lookup
-export const PUNJABI_WORD_SET = new Set(PUNJABI_VALID_WORDS)
+// Create a Set for fast lookup - only include words that are exactly 5 units
+export const PUNJABI_WORD_SET = new Set(
+    PUNJABI_VALID_WORDS.filter(word => countCharacterUnits(word) === 5)
+)
+
+// Export countCharacterUnits for use in API
+export { countCharacterUnits }
 

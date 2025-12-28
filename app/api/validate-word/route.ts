@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PUNJABI_WORD_SET } from '../../data/punjabiWords'
-
-function normalizeWord(word: string): string {
-    // Normalize to 5 Unicode characters (code points)
-    const cleaned = word.replace(/\s/g, '')
-    const chars = Array.from(cleaned) // Properly handle Unicode
-    if (chars.length >= 5) {
-        return chars.slice(0, 5).join('')
-    }
-    return chars.join('').padEnd(5, ' ')
-}
+import { PUNJABI_WORD_SET, countCharacterUnits } from '../../data/punjabiWords'
 
 export async function POST(request: NextRequest) {
     try {
@@ -23,13 +13,24 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const normalizedWord = normalizeWord(word)
-        const isValid = PUNJABI_WORD_SET.has(normalizedWord)
+        // Check if word is exactly 5 character units
+        const unitCount = countCharacterUnits(word)
+        if (unitCount !== 5) {
+            return NextResponse.json({
+                word: word,
+                isValid: false,
+                length: unitCount,
+                error: `Word must be exactly 5 character units, got ${unitCount}`
+            })
+        }
+
+        // Check if word exists in valid word set
+        const isValid = PUNJABI_WORD_SET.has(word)
 
         return NextResponse.json({
-            word: normalizedWord,
+            word: word,
             isValid,
-            length: normalizedWord.replace(/\s/g, '').length
+            length: unitCount
         })
     } catch (error) {
         console.error('Error validating word:', error)
