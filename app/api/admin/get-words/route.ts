@@ -15,16 +15,19 @@ async function getKV() {
 
 export async function GET(request: NextRequest) {
     try {
-        // Check password
-        const authHeader = request.headers.get('authorization')
-        const expectedPassword = process.env.ADMIN_PASSWORD || 'changeme'
+        // Check password only if ADMIN_PASSWORD is set
+        const expectedPassword = process.env.ADMIN_PASSWORD
         
-        if (!authHeader || authHeader !== `Bearer ${expectedPassword}`) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            )
+        if (expectedPassword) {
+            const authHeader = request.headers.get('authorization')
+            if (!authHeader || authHeader !== `Bearer ${expectedPassword}`) {
+                return NextResponse.json(
+                    { error: 'Unauthorized' },
+                    { status: 401 }
+                )
+            }
         }
+        // If no password is set, allow access without authentication
 
         // Get all words from KV (this is a simplified approach)
         // In production, you might want to use a different data structure

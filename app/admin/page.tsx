@@ -13,13 +13,49 @@ export default function AdminPanel() {
     const [savedWords, setSavedWords] = useState<Record<string, string>>({})
     const router = useRouter()
 
+    // Set default date to today when authenticated - MUST be before conditional return
     useEffect(() => {
-        // Check if already authenticated (simple client-side check)
-        const stored = sessionStorage.getItem('admin_authenticated')
-        if (stored === 'true') {
-            setAuthenticated(true)
-            loadSavedWords()
+        if (authenticated && !date) {
+            const today = new Date().toISOString().split('T')[0]
+            setDate(today)
         }
+    }, [authenticated, date])
+
+    useEffect(() => {
+        // Check if password is required by trying to access without auth
+        const checkAuthRequired = async () => {
+            try {
+                const response = await fetch('/api/admin/get-words')
+                if (response.ok) {
+                    // No password required
+                    setAuthenticated(true)
+                    const data = await response.json()
+                    setSavedWords(data.words || {})
+                } else if (response.status === 401) {
+                    // Password required - check if already authenticated
+                    const stored = sessionStorage.getItem('admin_authenticated')
+                    const storedPassword = sessionStorage.getItem('admin_password')
+                    if (stored === 'true' && storedPassword) {
+                        setAuthenticated(true)
+                        setPassword(storedPassword)
+                        // Load words with password
+                        const authResponse = await fetch('/api/admin/get-words', {
+                            headers: {
+                                'Authorization': `Bearer ${storedPassword}`
+                            }
+                        })
+                        if (authResponse.ok) {
+                            const authData = await authResponse.json()
+                            setSavedWords(authData.words || {})
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking auth:', error)
+            }
+        }
+        checkAuthRequired()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -28,22 +64,25 @@ export default function AdminPanel() {
         setMessage('')
 
         try {
-            // Verify password by trying to get words
+            // Try to get words with password
             const response = await fetch('/api/admin/get-words', {
-                headers: {
+                headers: password ? {
                     'Authorization': `Bearer ${password}`
-                }
+                } : {}
             })
 
             if (response.ok) {
                 setAuthenticated(true)
                 sessionStorage.setItem('admin_authenticated', 'true')
-                sessionStorage.setItem('admin_password', password)
+                if (password) {
+                    sessionStorage.setItem('admin_password', password)
+                }
                 const data = await response.json()
                 setSavedWords(data.words || {})
                 setMessage('Login successful!')
             } else {
-                setMessage('Invalid password')
+                const errorData = await response.json().catch(() => ({ error: 'Invalid password' }))
+                setMessage(errorData.error || 'Invalid password')
             }
         } catch (error) {
             setMessage('Error logging in')
@@ -54,14 +93,20 @@ export default function AdminPanel() {
 
     const loadSavedWords = async () => {
         try {
+            const authPassword = password || sessionStorage.getItem('admin_password') || ''
+            
             const response = await fetch('/api/admin/get-words', {
-                headers: {
-                    'Authorization': `Bearer ${password || sessionStorage.getItem('admin_password') || ''}`
-                }
+                headers: authPassword ? {
+                    'Authorization': `Bearer ${authPassword}`
+                } : {}
             })
+            
             if (response.ok) {
                 const data = await response.json()
                 setSavedWords(data.words || {})
+            } else {
+                const errorData = await response.json().catch(() => ({}))
+                console.error('Failed to load words:', errorData)
             }
         } catch (error) {
             console.error('Error loading words:', error)
@@ -79,12 +124,17 @@ export default function AdminPanel() {
         setMessage('')
 
         try {
+            const authPassword = password || sessionStorage.getItem('admin_password') || ''
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json'
+            }
+            if (authPassword) {
+                headers['Authorization'] = `Bearer ${authPassword}`
+            }
+            
             const response = await fetch('/api/admin/set-word', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${password || sessionStorage.getItem('admin_password') || ''}`
-                },
+                headers,
                 body: JSON.stringify({
                     word,
                     date: date || undefined
@@ -94,12 +144,17 @@ export default function AdminPanel() {
             const data = await response.json()
 
             if (response.ok) {
-                setMessage(`Word "${data.word}" set for ${data.date}`)
+                const successMsg = data.warning 
+                    ? `Word "${data.word}" set for ${data.date} (${data.warning})`
+                    : `Word "${data.word}" set for ${data.date}`
+                setMessage(successMsg)
                 setWord('')
-                setDate('')
+                // Don't clear date, keep it for next entry
                 loadSavedWords()
             } else {
-                setMessage(data.error || 'Error setting word')
+                const errorMsg = data.error || 'Error setting word'
+                setMessage(errorMsg)
+                console.error('Error setting word:', data)
             }
         } catch (error) {
             setMessage('Error setting word')
@@ -119,13 +174,34 @@ export default function AdminPanel() {
                 padding: '20px'
             }}>
                 <h1 style={{ marginBottom: '20px' }}>Admin Panel</h1>
+                <div style={{ 
+                    maxWidth: '500px', 
+                    marginBottom: '20px', 
+                    padding: '15px', 
+                    backgroundColor: '#f0f0f0', 
+                    borderRadius: '4px',
+                    fontSize: '14px'
+                }}>
+                    <strong>Password Protection:</strong>
+                    <p style={{ margin: '10px 0 0 0' }}>
+                        This admin panel is password-protected. To set a password:
+                    </p>
+                    <ol style={{ margin: '10px 0', paddingLeft: '20px' }}>
+                        <li>Create a <code>.env.local</code> file in the project root</li>
+                        <li>Add: <code>ADMIN_PASSWORD=your-password-here</code></li>
+                        <li>Restart the development server</li>
+                    </ol>
+                    <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#666' }}>
+                        For Vercel deployment, add <code>ADMIN_PASSWORD</code> in Environment Variables.
+                        If no password is set, the admin panel will be accessible without authentication.
+                    </p>
+                </div>
                 <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '300px' }}>
                     <input
                         type="password"
-                        placeholder="Password"
+                        placeholder="Enter password (if set)"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        required
                         style={{ padding: '10px', fontSize: '16px' }}
                     />
                     <button 
@@ -143,7 +219,17 @@ export default function AdminPanel() {
                     >
                         {loading ? 'Logging in...' : 'Login'}
                     </button>
-                    {message && <p style={{ color: message.includes('successful') ? 'green' : 'red' }}>{message}</p>}
+                    {message && (
+                        <div style={{ 
+                            padding: '10px',
+                            backgroundColor: message.includes('successful') ? '#efe' : '#fee',
+                            color: message.includes('successful') ? '#060' : '#c00',
+                            borderRadius: '4px',
+                            marginTop: '10px'
+                        }}>
+                            {message}
+                        </div>
+                    )}
                 </form>
                 <button 
                     onClick={() => router.push('/')}
@@ -162,14 +248,6 @@ export default function AdminPanel() {
             </div>
         )
     }
-
-    // Set default date to today
-    useEffect(() => {
-        if (!date) {
-            const today = new Date().toISOString().split('T')[0]
-            setDate(today)
-        }
-    }, [date])
 
     return (
         <div style={{ 
@@ -199,6 +277,7 @@ export default function AdminPanel() {
                         onClick={() => {
                             setAuthenticated(false)
                             sessionStorage.removeItem('admin_authenticated')
+                            sessionStorage.removeItem('admin_password')
                             setPassword('')
                         }}
                         style={{ 
@@ -281,13 +360,17 @@ export default function AdminPanel() {
                     </button>
                 </form>
                 {message && (
-                    <p style={{ 
+                    <div style={{ 
                         marginTop: '15px',
-                        color: message.includes('Error') ? 'red' : 'green',
-                        fontWeight: '600'
+                        padding: '10px',
+                        backgroundColor: message.includes('Error') || message.includes('Invalid') ? '#fee' : '#efe',
+                        color: message.includes('Error') || message.includes('Invalid') ? '#c00' : '#060',
+                        fontWeight: '600',
+                        borderRadius: '4px',
+                        border: `1px solid ${message.includes('Error') || message.includes('Invalid') ? '#fcc' : '#cfc'}`
                     }}>
                         {message}
-                    </p>
+                    </div>
                 )}
             </div>
 

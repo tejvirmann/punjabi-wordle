@@ -21,25 +21,30 @@ function getDateKey(dateString?: string): string {
 }
 
 function normalizeWord(word: string): string {
+    // Normalize to 5 Unicode characters (code points) - same as validation
     const cleaned = word.replace(/\s/g, '')
-    if (cleaned.length >= 5) {
-        return cleaned.substring(0, 5)
+    const chars = Array.from(cleaned) // Properly handle Unicode
+    if (chars.length >= 5) {
+        return chars.slice(0, 5).join('')
     }
-    return cleaned.padEnd(5, ' ')
+    return chars.join('').padEnd(5, ' ')
 }
 
 export async function POST(request: NextRequest) {
     try {
-        // Check password
-        const authHeader = request.headers.get('authorization')
-        const expectedPassword = process.env.ADMIN_PASSWORD || 'changeme'
+        // Check password only if ADMIN_PASSWORD is set
+        const expectedPassword = process.env.ADMIN_PASSWORD
         
-        if (!authHeader || authHeader !== `Bearer ${expectedPassword}`) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            )
+        if (expectedPassword) {
+            const authHeader = request.headers.get('authorization')
+            if (!authHeader || authHeader !== `Bearer ${expectedPassword}`) {
+                return NextResponse.json(
+                    { error: 'Unauthorized' },
+                    { status: 401 }
+                )
+            }
         }
+        // If no password is set, allow access without authentication
 
         const body = await request.json()
         const { word, date } = body
@@ -59,6 +64,7 @@ export async function POST(request: NextRequest) {
             const kv = await getKV()
             if (kv) {
                 await kv.set(`word:${dateKey}`, normalizedWord)
+                console.log(`Word "${normalizedWord}" saved for date ${dateKey}`)
             } else {
                 // Fallback: return success but note that KV is not configured
                 console.warn('KV not configured, word not persisted')
@@ -66,7 +72,7 @@ export async function POST(request: NextRequest) {
                     success: true,
                     word: normalizedWord,
                     date: dateKey,
-                    warning: 'KV not configured - word not persisted. Set up Vercel KV for persistent storage.'
+                    warning: 'KV not configured - word not persisted. Set up Vercel KV for persistent storage. For local development, you can use a file-based approach or set up KV.'
                 })
             }
         } catch (error) {
