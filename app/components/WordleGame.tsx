@@ -187,7 +187,7 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
     const [keyStates, setKeyStates] = useState<Record<string, 'correct' | 'present' | 'absent' | null>>({})
     const [hintsUsed, setHintsUsed] = useState(0)
     const [hintedPositions, setHintedPositions] = useState<Set<number>>(new Set())
-    const [skipValidation, setSkipValidation] = useState(false)
+    const [skipValidation, setSkipValidation] = useState(true)
 
     const handleKeyPress = useCallback((key: string) => {
         if (gameOver) return
