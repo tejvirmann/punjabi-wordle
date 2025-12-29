@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { countCharacterUnits, PUNJABI_WORD_SET } from '../../data/punjabiWords'
+import { countCharacterUnits, PUNJABI_WORD_SET } from '../../../data/punjabiWords'
 
 // Dynamically import KV only if env vars are set
 async function getKV() {
