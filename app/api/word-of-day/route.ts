@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { PUNJABI_VALID_WORDS, PUNJABI_WORD_SET, countCharacterUnits } from '../../data/punjabiWords'
 
 // Dynamically import KV only if env vars are set
@@ -15,7 +15,11 @@ async function getKV() {
 }
 
 function getDateKey(date: Date = new Date()): string {
-    return date.toISOString().split('T')[0] // YYYY-MM-DD format
+    // Use local date, not UTC, to ensure correct day
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}` // YYYY-MM-DD format
 }
 
 // Get a deterministic word for a date (same word every time for the same date)
@@ -30,9 +34,24 @@ function getWordForDate(dateKey: string): string {
     return PUNJABI_VALID_WORDS[wordIndex]
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        const dateKey = getDateKey()
+        // Allow optional date parameter for testing/setting future words
+        const { searchParams } = new URL(request.url)
+        const dateParam = searchParams.get('date')
+        let dateKey: string
+        if (dateParam) {
+            // Validate date format (YYYY-MM-DD)
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+                return NextResponse.json(
+                    { error: 'Invalid date format. Use YYYY-MM-DD' },
+                    { status: 400 }
+                )
+            }
+            dateKey = dateParam
+        } else {
+            dateKey = getDateKey()
+        }
         let word: string | null = null
 
         // Try to get word from KV store (admin-set word takes priority)

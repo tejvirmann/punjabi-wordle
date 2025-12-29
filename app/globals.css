@@ -231,6 +231,14 @@ header h1 {
     opacity: 0.6;
 }
 
+.hint-btn.validation-off {
+    background-color: #c9b458;
+}
+
+.hint-btn.validation-off:hover {
+    background-color: #b8a347;
+}
+
 .key.correct {
     background-color: #6aaa64;
     color: #ffffff;
@@ -322,6 +330,7 @@ header h1 {
         font-size: 24px;
         padding: 6px 0;
     }
+    
     
     .game-board {
         gap: 3px;

@@ -15,12 +15,43 @@ function isVirama(char: string): boolean {
 function countCharacterUnits(str: string): number {
     const chars = Array.from(str)
     let count = 0
-    for (let i = 0; i < chars.length; i++) {
-        // Skip matras and virama - they don't count as separate units
-        if (!isMatra(chars[i]) && !isVirama(chars[i])) {
-            count++
+    let i = 0
+    
+    while (i < chars.length) {
+        if (isMatra(chars[i])) {
+            // Matra belongs to previous unit, skip it
+            i++
+        } else if (isVirama(chars[i])) {
+            // Virama creates a conjunct - the previous consonant + virama + next consonant = 1 unit
+            // We already counted the previous consonant, so just skip the virama
+            // The next consonant will be part of this same unit
+            i++
+            // Skip the next consonant too (it's part of the conjunct)
+            if (i < chars.length && !isMatra(chars[i]) && !isVirama(chars[i])) {
+                i++
+            }
+        } else {
+            // Regular consonant or vowel - check if it's followed by virama
+            if (i + 1 < chars.length && isVirama(chars[i + 1])) {
+                // This is the start of a conjunct - count it as 1 unit
+                count++
+                i += 2 // Skip this consonant and the virama
+                // Skip the next consonant (part of conjunct) and any matras
+                while (i < chars.length && (isMatra(chars[i]) || (!isMatra(chars[i]) && !isVirama(chars[i])))) {
+                    if (!isMatra(chars[i]) && !isVirama(chars[i])) {
+                        i++ // Skip the second consonant of conjunct
+                        break
+                    }
+                    i++ // Skip matras
+                }
+            } else {
+                // Regular consonant/vowel
+                count++
+                i++
+            }
         }
     }
+    
     return count
 }
 
@@ -107,8 +138,8 @@ export const PUNJABI_VALID_WORDS = [
     'ਦੇਸ਼', 'ਰਾਸ਼ਟਰ', 'ਸਰਕਾਰ', 'ਕਾਨੂੰਨ', 'ਨਿਆਂ',
     'ਨਿਆਂਪਾਲਿਕਾ', 'ਪੁਲਿਸ', 'ਸਿਪਾਹੀ', 'ਫੌਜ', 'ਸੈਨਾ',
     'ਗੁਰੂ', 'ਸਿਖ', 'ਧਰਮ', 'ਪੂਜਾ', 'ਅਰਦਾਸ',
-    'ਗੁਰਦੁਆਰਾ', 'ਮੰਦਿਰ', 'ਮਸਜਿਦ', 'ਗਿਰਜਾ', 'ਪੂਜਾ',
-    'ਪ੍ਰਾਰਥਨਾ', 'ਭਗਤੀ', 'ਸੇਵਾ', 'ਦਾਨ', 'ਪੁੰਨ',
+    'ਗੁਰਦੁਆਰਾ',
+    'ਭਗਤੀ', 'ਸੇਵਾ', 'ਦਾਨ', 'ਪੁੰਨ',
     'ਕਰਮ', 'ਧਰਮ', 'ਕਰਤਾ', 'ਕਰਮਾ', 'ਫਲ',
     'ਪਾਪ', 'ਪੁੰਨ', 'ਸਵਰਗ', 'ਨਰਕ', 'ਮੋਕਸ਼',
     'ਜਨਮ', 'ਮੌਤ', 'ਜੀਵਨ', 'ਜੀਵ', 'ਪ੍ਰਾਣ',

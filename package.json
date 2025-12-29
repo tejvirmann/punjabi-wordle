@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "set-words": "node scripts/set-words-30-days.mjs"
   },
   "dependencies": {
     "next": "^14.0.0",

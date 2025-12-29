@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { countCharacterUnits, PUNJABI_WORD_SET } from '../../data/punjabiWords'
 
 // Dynamically import KV only if env vars are set
 async function getKV() {
@@ -15,19 +16,17 @@ async function getKV() {
 
 function getDateKey(dateString?: string): string {
     if (dateString) {
-        return new Date(dateString).toISOString().split('T')[0]
+        const date = new Date(dateString)
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
     }
-    return new Date().toISOString().split('T')[0]
-}
-
-function normalizeWord(word: string): string {
-    // Normalize to 5 Unicode characters (code points) - same as validation
-    const cleaned = word.replace(/\s/g, '')
-    const chars = Array.from(cleaned) // Properly handle Unicode
-    if (chars.length >= 5) {
-        return chars.slice(0, 5).join('')
-    }
-    return chars.join('').padEnd(5, ' ')
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
 }
 
 export async function POST(request: NextRequest) {
@@ -56,21 +55,44 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const normalizedWord = normalizeWord(word)
+        // Validate word is exactly 5 character units
+        const unitCount = countCharacterUnits(word)
+        if (unitCount !== 5) {
+            return NextResponse.json(
+                { 
+                    error: `Word must be exactly 5 character units, got ${unitCount}`,
+                    word: word,
+                    unitCount: unitCount
+                },
+                { status: 400 }
+            )
+        }
+
+        // Validate word is in valid word set
+        if (!PUNJABI_WORD_SET.has(word)) {
+            return NextResponse.json(
+                { 
+                    error: 'Word is not in the valid word list',
+                    word: word
+                },
+                { status: 400 }
+            )
+        }
+
         const dateKey = getDateKey(date)
 
         // Store in KV
         try {
             const kv = await getKV()
             if (kv) {
-                await kv.set(`word:${dateKey}`, normalizedWord)
-                console.log(`Word "${normalizedWord}" saved for date ${dateKey}`)
+                await kv.set(`word:${dateKey}`, word)
+                console.log(`Word "${word}" saved for date ${dateKey}`)
             } else {
                 // Fallback: return success but note that KV is not configured
                 console.warn('KV not configured, word not persisted')
                 return NextResponse.json({
                     success: true,
-                    word: normalizedWord,
+                    word: word,
                     date: dateKey,
                     warning: 'KV not configured - word not persisted. Set up Vercel KV for persistent storage. For local development, you can use a file-based approach or set up KV.'
                 })
@@ -85,8 +107,9 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            word: normalizedWord,
-            date: dateKey
+            word: word,
+            date: dateKey,
+            message: 'Word set successfully'
         })
     } catch (error) {
         console.error('Error setting word:', error)

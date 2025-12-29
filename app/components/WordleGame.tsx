@@ -43,42 +43,99 @@ function isConsonant(char: string): boolean {
     return PUNJABI_CONSONANTS.flat().includes(char) || PUNJABI_VOWELS.includes(char)
 }
 
-// Count character units (consonant + matra = 1 unit, virama doesn't count)
+// Count character units (consonant + matra = 1 unit, virama creates conjuncts)
 function countCharacterUnits(str: string): number {
     const chars = Array.from(str)
     let count = 0
-    for (let i = 0; i < chars.length; i++) {
-        // Skip matras and virama - they don't count as separate units
-        if (isMatra(chars[i]) || isVirama(chars[i])) {
-            continue
+    let i = 0
+    
+    while (i < chars.length) {
+        if (isMatra(chars[i])) {
+            // Matra belongs to previous unit, skip it
+            i++
+        } else if (isVirama(chars[i])) {
+            // Virama creates a conjunct - the previous consonant + virama + next consonant = 1 unit
+            // We already counted the previous consonant, so just skip the virama
+            // The next consonant will be part of this same unit
+            i++
+            // Skip the next consonant too (it's part of the conjunct)
+            if (i < chars.length && !isMatra(chars[i]) && !isVirama(chars[i])) {
+                i++
+            }
+        } else {
+            // Regular consonant or vowel - check if it's followed by virama
+            if (i + 1 < chars.length && isVirama(chars[i + 1])) {
+                // This is the start of a conjunct - count it as 1 unit
+                count++
+                i += 2 // Skip this consonant and the virama
+                // Skip the next consonant (part of conjunct) and any matras
+                while (i < chars.length && (isMatra(chars[i]) || (!isMatra(chars[i]) && !isVirama(chars[i])))) {
+                    if (!isMatra(chars[i]) && !isVirama(chars[i])) {
+                        i++ // Skip the second consonant of conjunct
+                        break
+                    }
+                    i++ // Skip matras
+                }
+            } else {
+                // Regular consonant/vowel
+                count++
+                i++
+            }
         }
-        count++
     }
+    
     return count
 }
 
-// Get character unit at index (consonant + virama + following consonant + matras = 1 unit)
+// Get character unit at index (consonant + virama + following consonant + matras = 1 unit for conjuncts)
 function getCharacterUnitAt(str: string, unitIndex: number): string {
     if (!str || unitIndex < 0) return ''
     
     const chars = Array.from(str)
     let unitCount = 0
     let currentUnitStart = -1
+    let i = 0
     
-    // First, find which character index starts the requested unit
-    // Matras and virama don't start new units
-    for (let i = 0; i < chars.length; i++) {
-        if (!isMatra(chars[i]) && !isVirama(chars[i])) {
-            // This is a new unit (consonant or vowel)
-            if (unitCount === unitIndex) {
-                currentUnitStart = i
-                break
+    // Find which character index starts the requested unit
+    while (i < chars.length) {
+        if (isMatra(chars[i])) {
+            i++
+        } else if (isVirama(chars[i])) {
+            i++
+            if (i < chars.length && !isMatra(chars[i]) && !isVirama(chars[i])) {
+                i++
             }
-            unitCount++
+        } else {
+            // Check if this is the start of a conjunct
+            if (i + 1 < chars.length && isVirama(chars[i + 1])) {
+                // This is a conjunct - it's one unit
+                if (unitCount === unitIndex) {
+                    currentUnitStart = i
+                    break
+                }
+                unitCount++
+                i += 2 // Skip consonant and virama
+                // Skip the next consonant (part of conjunct) and any matras
+                while (i < chars.length && (isMatra(chars[i]) || (!isMatra(chars[i]) && !isVirama(chars[i])))) {
+                    if (!isMatra(chars[i]) && !isVirama(chars[i])) {
+                        i++ // Skip the second consonant of conjunct
+                        break
+                    }
+                    i++ // Skip matras
+                }
+            } else {
+                // Regular consonant/vowel
+                if (unitCount === unitIndex) {
+                    currentUnitStart = i
+                    break
+                }
+                unitCount++
+                i++
+            }
         }
     }
     
-    // If we found the unit start, collect the consonant, virama (if present), next consonant, and matras
+    // If we found the unit start, collect all characters in that unit
     if (currentUnitStart >= 0 && currentUnitStart < chars.length) {
         let result = chars[currentUnitStart]
         let j = currentUnitStart + 1
@@ -130,6 +187,7 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
     const [keyStates, setKeyStates] = useState<Record<string, 'correct' | 'present' | 'absent' | null>>({})
     const [hintsUsed, setHintsUsed] = useState(0)
     const [hintedPositions, setHintedPositions] = useState<Set<number>>(new Set())
+    const [skipValidation, setSkipValidation] = useState(false)
 
     const handleKeyPress = useCallback((key: string) => {
         if (gameOver) return
@@ -167,6 +225,56 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
         }
     }, [currentGuess])
 
+    // Extract base consonants from a character unit (removes matras, handles conjuncts)
+    const getBaseConsonants = useCallback((unit: string): string[] => {
+        const chars = Array.from(unit)
+        const consonants: string[] = []
+        let i = 0
+        
+        while (i < chars.length) {
+            if (isMatra(chars[i])) {
+                i++
+            } else if (isVirama(chars[i])) {
+                i++
+                // Skip the next consonant (it's part of the conjunct)
+                if (i < chars.length && !isMatra(chars[i]) && !isVirama(chars[i])) {
+                    i++
+                }
+            } else {
+                // This is a consonant or vowel
+                if (i + 1 < chars.length && isVirama(chars[i + 1])) {
+                    // It's a conjunct - add both consonants
+                    consonants.push(chars[i])
+                    i += 2
+                    if (i < chars.length && !isMatra(chars[i]) && !isVirama(chars[i])) {
+                        consonants.push(chars[i])
+                        i++
+                    }
+                } else {
+                    consonants.push(chars[i])
+                    i++
+                }
+            }
+        }
+        
+        return consonants
+    }, [])
+
+    // Check if two units have the same base consonants (ignoring matras)
+    const hasSameBaseConsonants = useCallback((unit1: string, unit2: string): boolean => {
+        const cons1 = getBaseConsonants(unit1)
+        const cons2 = getBaseConsonants(unit2)
+        
+        if (cons1.length !== cons2.length) return false
+        
+        // Sort and compare (for conjuncts, order matters)
+        for (let i = 0; i < cons1.length; i++) {
+            if (cons1[i] !== cons2[i]) return false
+        }
+        
+        return true
+    }, [getBaseConsonants])
+
     const evaluateGuess = useCallback((guess: string): ('correct' | 'present' | 'absent')[] => {
         const evaluation: ('correct' | 'present' | 'absent')[] = []
         
@@ -181,7 +289,7 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
         
         const used = new Array(wordLength).fill(false)
 
-        // First pass: mark correct positions (compare full character units)
+        // First pass: mark correct positions (exact match - consonant AND matra)
         for (let i = 0; i < wordLength; i++) {
             if (guessUnits[i] === targetUnits[i]) {
                 evaluation[i] = 'correct'
@@ -189,12 +297,15 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
             }
         }
 
-        // Second pass: mark present letters (compare character units)
+        // Second pass: mark present letters
+        // Check if base consonants match (even if matras differ)
         for (let i = 0; i < wordLength; i++) {
-            if (evaluation[i]) continue
+            if (evaluation[i]) continue // Already marked as correct
 
+            // Check if this unit's base consonants exist in target word
             for (let j = 0; j < wordLength; j++) {
-                if (!used[j] && guessUnits[i] === targetUnits[j]) {
+                if (!used[j] && hasSameBaseConsonants(guessUnits[i], targetUnits[j])) {
+                    // Base consonants match - mark as present (yellow)
                     evaluation[i] = 'present'
                     used[j] = true
                     break
@@ -207,7 +318,7 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
         }
 
         return evaluation
-    }, [targetWord, wordLength])
+    }, [targetWord, wordLength, hasSameBaseConsonants])
 
     const submitGuess = useCallback(async () => {
         // Count character units (consonant + matra = 1 unit)
@@ -218,26 +329,28 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
             return
         }
 
-        // Validate word
-        try {
-            const response = await fetch('/api/validate-word', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ word: currentGuess }),
-            })
+        // Validate word (skip if toggle is enabled)
+        if (!skipValidation) {
+            try {
+                const response = await fetch('/api/validate-word', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ word: currentGuess }),
+                })
 
-            const data = await response.json()
-            
-            if (!data.isValid) {
-                setMessage('ਇਹ ਸ਼ਬਦ ਮਾਨਤਾ ਪ੍ਰਾਪਤ ਨਹੀਂ ਹੈ')
-                setTimeout(() => setMessage(''), 2000)
-                return
+                const data = await response.json()
+                
+                if (!data.isValid) {
+                    setMessage('ਇਹ ਸ਼ਬਦ ਮਾਨਤਾ ਪ੍ਰਾਪਤ ਨਹੀਂ ਹੈ')
+                    setTimeout(() => setMessage(''), 2000)
+                    return
+                }
+            } catch (error) {
+                console.error('Error validating word:', error)
+                // Continue with guess even if validation fails
             }
-        } catch (error) {
-            console.error('Error validating word:', error)
-            // Continue with guess even if validation fails
         }
 
         const evaluation = evaluateGuess(currentGuess)
@@ -246,17 +359,56 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
 
         // Update keyboard states - iterate through character units
         const newKeyStates = { ...keyStates }
+        const targetUnits: string[] = []
         for (let i = 0; i < wordLength; i++) {
-            const unit = getCharacterUnitAt(currentGuess, i)
+            targetUnits.push(getCharacterUnitAt(targetWord, i))
+        }
+        
+        // Get all matras that exist in the target word
+        const targetMatras = new Set<string>()
+        Array.from(targetWord).forEach(char => {
+            if (isMatra(char)) {
+                targetMatras.add(char)
+            }
+        })
+        
+        for (let i = 0; i < wordLength; i++) {
+            const guessUnit = getCharacterUnitAt(currentGuess, i)
             const status = evaluation[i]
             
             // Update state for each character in the unit
-            Array.from(unit).forEach((char) => {
+            Array.from(guessUnit).forEach((char) => {
                 const currentStatus = newKeyStates[char]
-                if (status === 'correct' || 
-                    (status === 'present' && currentStatus !== 'correct') ||
-                    (status === 'absent' && !currentStatus)) {
-                    newKeyStates[char] = status
+                
+                if (status === 'correct') {
+                    // Exact match - mark all characters as correct
+                    newKeyStates[char] = 'correct'
+                } else if (status === 'present') {
+                    // Base consonant matches but matra might not
+                    if (isMatra(char)) {
+                        // For matras, only mark as present if they exist in the target word
+                        if (targetMatras.has(char)) {
+                            // This matra exists in the target word
+                            if (currentStatus !== 'correct') {
+                                newKeyStates[char] = 'present'
+                            }
+                        } else {
+                            // This matra doesn't exist in target - mark as absent
+                            if (!currentStatus || currentStatus === 'present') {
+                                newKeyStates[char] = 'absent'
+                            }
+                        }
+                    } else {
+                        // Base consonant/vowel - mark as present
+                        if (currentStatus !== 'correct') {
+                            newKeyStates[char] = 'present'
+                        }
+                    }
+                } else if (status === 'absent') {
+                    // Mark as absent if not already marked
+                    if (!currentStatus) {
+                        newKeyStates[char] = 'absent'
+                    }
                 }
             })
         }
@@ -280,7 +432,7 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
 
         setCurrentRow(prev => prev + 1)
         setCurrentGuess('')
-    }, [currentGuess, wordLength, guesses, evaluateGuess, keyStates, targetWord, currentRow, maxGuesses])
+    }, [currentGuess, wordLength, guesses, evaluateGuess, keyStates, targetWord, currentRow, maxGuesses, skipValidation])
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -549,15 +701,23 @@ export default function PunjabiWordleGame({ targetWord }: WordleGameProps) {
 
             <div className="message">{message}</div>
             
-            {/* Hint Button */}
+            {/* Validation Toggle and Hint Button */}
             {!gameOver && (
-                <button
-                    className="hint-btn"
-                    onClick={useHint}
-                    disabled={hintsUsed >= wordLength}
-                >
-                    💡 Hint ({hintsUsed}/{wordLength})
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', justifyContent: 'center', marginBottom: '10px', width: '100%', maxWidth: '500px', flexWrap: 'wrap' }}>
+                    <button
+                        className={`hint-btn ${skipValidation ? 'validation-off' : ''}`}
+                        onClick={() => setSkipValidation(!skipValidation)}
+                    >
+                        {skipValidation ? '✓ Validation OFF' : 'Validation ON'}
+                    </button>
+                    <button
+                        className="hint-btn"
+                        onClick={useHint}
+                        disabled={hintsUsed >= wordLength}
+                    >
+                        💡 Hint ({hintsUsed}/{wordLength})
+                    </button>
+                </div>
             )}
 
             {showModal && (
